@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+    {% load static %}
+    <title>Military Commissariat List</title>
+        <link rel="stylesheet" href="{% static 'military_commissariat/css/military_commissariat_list.css' %}">
+<!--    <script src="{% static 'exam/js/my_acc.js' %}" defer></script>-->
+
+
+</head>
+<body>
+    <h1>Military Commissariat List</h1>
+<table id="records_table">
+    <tr>
+        <th>Name</th>
+        <th>Address</th>
+        <th>Phone</th>
+        <th>Select</th>
+    </tr>
+    {% for item in objects %}
+        <tr>
+            <td contenteditable="true">{{ item.name }}</td>
+            <td contenteditable="true">{{ item.address }}</td>
+            <td contenteditable="true">{{ item.phone }}</td>
+            <td><input type="checkbox" name="record" value="{{ item.id }}"></td>
+        </tr>
+    {% endfor %}
+</table>
+    <button id="saveButton">Сохранить</button>
+<button onclick="deleteSelectedRecords()">Delete Selected</button>
+
+    <!-- Форма для добавления новой записи -->
+    <h2>Добавить запись</h2>
+    <input type="text" id="field1" placeholder="Значение поля 1">
+    <input type="text" id="field2" placeholder="Значение поля 2">
+    <input type="text" id="field3" placeholder="Значение поля 3">
+    <button onclick="add_record()">Добавить</button>
+    
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script>
+$(document).ready(function() {
+    $('#saveButton').click(function() {
+        var data = [];
+        $('#records_table tr').each(function() {
+            var row = $(this);
+            var id = row.find('input[name="record"]').val();
+            var name = row.find('td:nth-child(1)').text();
+            var address = row.find('td:nth-child(2)').text();
+            var phone = row.find('td:nth-child(3)').text();
+
+            // Проверяем, что данные не пустые, прежде чем добавлять их в массив
+            if (id && name && address && phone) {
+                var itemData = {
+                    id: id,
+                    name: name,
+                    address: address,
+                    phone: phone
+                };
+                data.push(itemData);
+            }
+        });
+
+        // Отправляем данные на сервер, только если есть что отправлять
+        if (data.length > 0) {
+            $.ajax({
+                type: 'POST',
+                url: '/save_data/',
+                data: JSON.stringify(data),
+                contentType: 'application/json',
+                dataType: 'json',
+                success: function(response) {
+                    alert(response.message);
+                },
+                error: function(xhr, errmsg, err) {
+                    console.log(xhr.status + ": " + xhr.responseText);
+                    alert('Error occurred while saving data.');
+                }
+            });
+        } else {
+            alert('No data to save.');
+        }
+    });
+});
+
+</script>
+<script>
+function add_record() {
+    // Получаем значения полей
+    var field1_value = document.getElementById("field1").value;
+    var field2_value = document.getElementById("field2").value;
+    var field3_value = document.getElementById("field3").value;
+
+    // Создаем объект FormData для отправки данных
+    var formData = new FormData();
+    formData.append('field1', field1_value);
+    formData.append('field2', field2_value);
+    formData.append('field3', field3_value);
+
+    // Отправляем данные на сервер
+    fetch('/add_data_request/', {
+        method: 'POST',
+        body: formData,
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.text();
+    })
+    .then(data => {
+        console.log(data); // Делаем что-то с ответом от сервера
+        location.reload(); // Обновляем страницу после успешного добавления записи
+    })
+    .catch(error => {
+        console.error('There has been a problem with your fetch operation:', error);
+    });
+}
+
+</script>
+<script>
+function deleteSelectedRecords() {
+    var table = document.getElementById("records_table");
+    var checkboxes = table.querySelectorAll('input[type="checkbox"]:checked');
+    var selectedRecords = [];
+
+    checkboxes.forEach(function(checkbox) {
+        selectedRecords.push(checkbox.value);
+    });
+
+    console.log("Selected records:", selectedRecords);
+
+    if (selectedRecords.length > 0) {
+        fetch('/delete_records/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ records: selectedRecords })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log(data.message);
+            // Удаление строк таблицы соответствующих удаленным записям
+            checkboxes.forEach(function(checkbox) {
+                if (checkbox.checked) {
+                    checkbox.closest("tr").remove();
+                }
+            });
+        })
+        .catch(error => {
+            console.error('There has been a problem with your fetch operation:', error);
+        });
+    } else {
+        alert("Please select records to delete.");
+    }
+}
+
+
+// Функция для получения значения CSRF-токена из куки
+function getCookie(name) {
+    var cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        var cookies = document.cookie.split(';');
+        for (var i = 0; i < cookies.length; i++) {
+            var cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+
+</body>
+</html>
